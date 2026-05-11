@@ -23,7 +23,7 @@ This server allows AI assistants (Claude, Cursor, Windsurf, etc.) to interact wi
 
 ```bash
 # Clone or download the server
-git clone https://github.com/your-org/vk-mcp-server.git
+git clone https://github.com/ssm82/full-vk-mcp.git
 cd vk-mcp-server
 
 # Install dependencies
