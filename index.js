@@ -940,7 +940,7 @@ const tools = [
   },
   {
     name: 'vk_users_get_followers',
-    description: 'Get user's followers',
+    description: "Get user's followers",
     inputSchema: {
       type: 'object',
       properties: {
@@ -953,7 +953,7 @@ const tools = [
   },
   {
     name: 'vk_users_get_subscriptions',
-    description: 'Get user's subscriptions',
+    description: "Get user's subscriptions",
     inputSchema: {
       type: 'object',
       properties: {

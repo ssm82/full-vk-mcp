@@ -56,7 +56,7 @@ Add to your Claude config (`~/Library/Application Support/Claude/claude_desktop_
   "mcpServers": {
     "vk": {
       "command": "node",
-      "args": ["/path/to/full_vk_mcp/index.js"],
+      "args": ["/path/to/full-vk-mcp/index.js"],
       "env": {
         "VK_ACCESS_TOKEN": "your_vk_token_here"
       }
