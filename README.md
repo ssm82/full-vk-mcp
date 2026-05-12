@@ -2,102 +2,341 @@
 
 Model Context Protocol (MCP) server for [VKontakte](https://vk.com) (VK) — the largest social network in Russia and CIS countries.
 
-This server allows AI assistants (Claude, Cursor, Windsurf, etc.) to interact with VK through a standardized MCP interface.
+This server allows AI assistants (Claude, Cursor, Windsurf, VS Code, etc.) to interact with VK through a standardized MCP interface.
 
 ## Features
 
-- Full access to VK API methods (users, wall, groups, friends, photos, videos, messages, market, stats, etc.)
-- Photo upload support (wall photos)
-- Clean parameter handling and boolean normalization
-- ~180+ available tools
-- Works via stdio (standard for MCP)
+- **180+ VK API tools auto-generated from the official schema** (full set available with `VK_MCP_MODE=all`; safe defaults expose a smaller subset) — users, wall, groups, friends, photos, videos, messages, market, stats, stories, polls, and more
+- **Auto-generated from VK API schema** — always up-to-date with the official API
+- **Read/Write/Money mode filtering** — restrict AI to read-only, allow non-financial writes, or enable financially sensitive methods
+- **Section filtering** — include or exclude specific API sections (e.g., disable `ads`, `secure`)
+- **`.env` support** — load token from environment file for local development
+- **VK upload API helpers** — exposes upload-server and save methods for media workflows
+- **ESM-based** — modern Node.js module system
+- **Stdio transport** — standard MCP transport, no network exposure
 
-## Installation
-
-### Prerequisites
+## Prerequisites
 
 - Node.js ≥ 18
 - VK Access Token with required permissions
 
-### Quick Start
+## Installation
 
 ```bash
-# Clone or download the server
+# Clone the repository
 git clone https://github.com/ssm82/full-vk-mcp.git
-cd vk-mcp-server
+cd full-vk-mcp
 
 # Install dependencies
 npm install
-
-# Run the server
-VK_ACCESS_TOKEN=your_token_here node index.js
 ```
 
-## Getting a VK Access Token
+The VK API schema is downloaded **automatically** on the first run. No manual steps needed.
 
-1. Go to [VK Developer Tools](https://vk.com/dev)
-2. Create a new application or use an existing one
-3. Get an access token with the necessary scopes:
-   - `wall` — for posting and reading wall
-   - `photos` — for uploading photos
-   - `groups` — for community management
-   - `friends`, `messages`, etc. (depending on your needs)
+## Configuration
 
-**Warning:** The token gives the AI full access according to its permissions. Use tokens with minimal required rights.
+### 1. VK Access Token
 
-## Configuration in MCP Clients
+Create a `.env` file in the project root:
 
-### Claude Desktop
+```bash
+VK_ACCESS_TOKEN=your_vk_token_here
+```
 
-Add to your Claude config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+Or get a token from:
+- [vkhost.github.io](https://vkhost.github.io/) — quick token generator
+- [VK Dev](https://dev.vk.com/) — official developer portal
+
+**Required permissions depend on your use case:**
+- `wall` — posting and reading wall
+- `photos` — uploading photos
+- `groups` — community management
+- `friends`, `messages`, `market`, `stats` — as needed
+
+> **Security:** Never commit your token to git. The `.env` file is already in `.gitignore`.
+
+### 2. Choose a Profile (Recommended)
+
+Instead of manually configuring sections and methods, use a built-in profile via `VK_MCP_PROFILE`:
+
+```bash
+VK_MCP_PROFILE=minimal node src/index.js
+```
+
+| Profile | Mode | Description | Warning |
+|---------|------|-------------|---------|
+| `minimal` | read | Essential read methods | Safe |
+| `social` | read | Users, friends + extras | Safe |
+| `content_read` | read | ~25 content viewing methods | Safe |
+| `content_publish` | all | ~20 content creation methods | Can publish |
+| `community_manager` | all | Wall, board, groups management | Can modify communities |
+| `messenger` | all | Messages + user info | Requires `messages` scope |
+| `analytics` | read | Stats, wall, groups insights | Safe |
+| `ads` | money | Ads API + helper methods | **Can spend money** |
+| `market` | money | VK Market + upload helpers | Can modify shop |
+| `commerce` | money | Market, orders, store, gifts, donut | Financially sensitive |
+| `search` | read | ~10 search methods | Safe |
+| `full_read` | read | All read methods except ads/secure | Safe |
+| `full` | all | **All VK API methods** | **Development only** |
+
+Profiles can be extended with environment variables:
+
+```bash
+VK_MCP_PROFILE=social VK_MCP_INCLUDE_SECTIONS=wall node src/index.js
+```
+
+> **Env extends profile:** list variables (sections, methods, excludes) are merged with the profile; scalar `mode` is overridden by env.
+
+### 3. MCP Client Setup
+
+#### VS Code (with Copilot / Claude / etc.)
+
+Create `.vscode/mcp.json`:
+
+```json
+{
+  "servers": {
+    "vk": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["src/index.js"],
+      "env": {
+        "VK_ACCESS_TOKEN": "${input:vk-token}",
+        "VK_MCP_PROFILE": "minimal"
+      }
+    }
+  },
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "vk-token",
+      "description": "VK Access Token",
+      "password": true
+    }
+  ]
+}
+```
+
+#### Cursor
+
+Create `.cursor/mcp.json`:
 
 ```json
 {
   "mcpServers": {
     "vk": {
       "command": "node",
-      "args": ["/path/to/full-vk-mcp/index.js"],
+      "args": ["src/index.js"],
       "env": {
-        "VK_ACCESS_TOKEN": "your_vk_token_here"
+        "VK_ACCESS_TOKEN": "your_token",
+        "VK_MCP_PROFILE": "social"
       }
     }
   }
 }
 ```
 
-### Other MCP Clients
+#### Claude Desktop
 
-Use the stdio transport with environment variable `VK_ACCESS_TOKEN`.
+Edit `claude_desktop_config.json`:
 
-## Available Tools (Examples)
+- **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows:** `%APPDATA%/Claude/claude_desktop_config.json`
+- **Linux:** `~/.config/Claude/claude_desktop_config.json`
 
-| Category       | Tools                                      | Description                     |
-|----------------|--------------------------------------------|---------------------------------|
-| Wall           | `vk_wall_get`, `vk_wall_post`, `vk_wall_edit`, `vk_wall_delete` | Work with posts |
-| Users          | `vk_users_get`, `vk_users_search`          | User information                |
-| Groups         | `vk_groups_get`, `vk_groups_get_members`   | Communities and members         |
-| Photos         | `vk_photos_get`, `vk_photos_upload_wall`   | Photos + upload                 |
-| Messages       | `vk_messages_get_history`, `vk_messages_get_conversations` | Messaging (read)     |
-| Market         | `vk_market_get_items`, `vk_market_search`, `vk_market_get_orders` | VK Market     |
-| Stats          | `vk_stats_get`, `vk_stats_get_post_reach`  | Statistics (admin)              |
-| Friends        | `vk_friends_get`, `vk_friends_get_online`  | Friends                         |
-| + 170 more tools | —                                        | Full list in the code           |
+```json
+{
+  "mcpServers": {
+    "vk": {
+      "command": "node",
+      "args": ["/absolute/path/to/full-vk-mcp/src/index.js"],
+      "env": {
+        "VK_ACCESS_TOKEN": "your_token",
+        "VK_MCP_PROFILE": "minimal"
+      }
+    }
+  }
+}
+```
+
+#### Windsurf / Other MCP Clients
+
+Use the stdio transport and provide `VK_ACCESS_TOKEN` via environment variables.
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VK_ACCESS_TOKEN` | *(required)* | Your VK API access token |
+| `VK_MCP_PROFILE` | — | Built-in profile name (`minimal`, `social`, `full`, etc.) |
+| `VK_MCP_MODE` | `read` | `read` — read-only, `write` — non-financial writes, `money` — financially sensitive, `all` — everything |
+| `VK_MCP_INCLUDE_SECTIONS` | — | Comma-separated whitelist of API sections. Without a profile, safe subset (`users`, `groups`, `wall`, `friends`, `photos`) is used |
+| `VK_MCP_EXCLUDE_SECTIONS` | `ads,secure` *(without profile / without explicit includes)* | Comma-separated blacklist of API sections (e.g., `ads,secure`). Skipped when `VK_MCP_INCLUDE_SECTIONS` or `VK_MCP_INCLUDE_METHODS` is set |
+| `VK_MCP_INCLUDE_METHODS` | — | Comma-separated whitelist of methods (e.g., `users.get,wall.get`) |
+| `VK_MCP_EXCLUDE_METHODS` | — | Comma-separated blacklist of methods |
+| `VK_MCP_MAX_TOOLS` | — | Limit the number of exposed tools |
+
+### Mode Filtering
+
+The server automatically classifies each VK API method into risk levels:
+
+| Mode | Description | Sections |
+|------|-------------|----------|
+| `read` | Read-only methods | Safe subset: `users`, `groups`, `wall`, `friends`, `photos` |
+| `write` | Read + non-financial writes | Can modify your account (post, edit, delete, send, etc.) |
+| `money` | Financially sensitive only | `ads`, `market`, `orders`, `store`, `gifts`, `donut`, `votes`, selected `secure.*` |
+| `all` | Everything | Read + write + money — no restrictions |
+
+- **Read** methods — `get*`, `search*`, `is*`, `are*`, `check*`, `resolve*`, `find*`, `count*`, `lookup*`, `list*`
+- **Write** methods — everything else (post, edit, delete, send, etc.)
+- **Money** methods — any method in financial sections or explicitly tagged (`secure.getAppBalance`, etc.)
+
+Use `VK_MCP_MODE=read` to prevent the AI from making any changes to your VK account.
+Use `VK_MCP_MODE=money` when you need ads, market, or payment-related tools.
+
+## Running Locally
+
+```bash
+# With .env file (recommended for development)
+node src/index.js
+
+# Or inline
+VK_ACCESS_TOKEN=your_token node src/index.js
+
+# Use a profile
+VK_ACCESS_TOKEN=your_token VK_MCP_PROFILE=minimal node src/index.js
+
+# Read-only mode
+VK_ACCESS_TOKEN=your_token VK_MCP_MODE=read node src/index.js
+
+# Include only specific sections
+VK_ACCESS_TOKEN=your_token VK_MCP_INCLUDE_SECTIONS=users,wall node src/index.js
+```
+
+### CLI Commands
+
+```bash
+# List all available profiles
+node src/index.js --list-profiles
+
+# List tools for a specific profile (no token required)
+VK_MCP_PROFILE=minimal node src/index.js --list-tools
+```
+
+## Available Tools (by Category)
+
+| Category | Examples | Count |
+|----------|----------|-------|
+| **Wall** | `vk_wall_get`, `vk_wall_post`, `vk_wall_edit`, `vk_wall_delete`, `vk_wall_search` | 10+ |
+| **Users** | `vk_users_get`, `vk_users_search`, `vk_users_get_followers` | 5+ |
+| **Groups** | `vk_groups_get`, `vk_groups_get_members`, `vk_groups_search`, `vk_groups_join` | 20+ |
+| **Photos** | `vk_photos_get`, `vk_photos_get_upload_server`, `vk_photos_save` | 15+ |
+| **Videos** | `vk_video_get`, `vk_video_search`, `vk_video_save` | 10+ |
+| **Messages** | `vk_messages_get_history`, `vk_messages_get_conversations`, `vk_messages_send` | 20+ |
+| **Friends** | `vk_friends_get`, `vk_friends_get_online`, `vk_friends_add` | 10+ |
+| **Market** | `vk_market_get`, `vk_market_search`, `vk_market_get_orders` | 10+ |
+| **Stories** | `vk_stories_get`, `vk_stories_get_upload_server` | 5+ |
+| **Polls** | `vk_polls_create`, `vk_polls_get_by_id`, `vk_polls_add_vote` | 5+ |
+| **Stats** | `vk_stats_get`, `vk_stats_get_post_reach` | 2+ |
+| **Ads** | `vk_ads_get_campaigns`, `vk_ads_get_ads`, `vk_ads_get_statistics` | 15+ |
+| **+ 60 more sections** | docs, notes, board, fave, notifications, pages, storage, etc. | — |
+
+> **Total:** 180+ tools auto-generated from the official VK API schema.
+
+## Examples
+
+### Get your wall posts
+
+```
+Tool: vk_wall_get
+Arguments: { "count": 5 }
+```
+
+### Search for users
+
+```
+Tool: vk_users_search
+Arguments: { "q": "Ivan Ivanov", "count": 10 }
+```
+
+### Get community members
+
+```
+Tool: vk_groups_get_members
+Arguments: { "group_id": "apiclub", "count": 100 }
+```
+
+### Create a poll
+
+```
+Tool: vk_polls_create
+Arguments: {
+  "question": "What's your favorite color?",
+  "add_answers": "[\"Red\", \"Green\", \"Blue\"]"
+}
+```
 
 ## Development
 
 ```bash
-# Run tests
+# Run tests (schema downloads automatically on first run)
 npm test
 
-# The server uses ESM
-node index.js
+# Start the server
+node src/index.js
 ```
 
-## Security Notes
+## Project Structure
 
-- Never commit your `VK_ACCESS_TOKEN` to git
-- Use tokens with the minimum required permissions
-- The server runs locally via stdio — it does not expose any network ports
+```
+full-vk-mcp/
+├── src/
+│   ├── index.js           # MCP server entry point
+│   ├── schema-loader.js   # Loads and filters VK API schema
+│   ├── tool-registry.js   # Builds MCP tools from schema
+│   ├── param-converter.js # Converts VK params to JSON Schema
+│   └── vk-client.js       # VK API HTTP client
+├── vk-api-schema/         # Official VK API schema (JSON) — see note below
+├── tests.test.js          # Test suite
+├── .env                   # Your token (gitignored)
+├── package.json
+└── README.md
+```
+
+## VK API Schema
+
+The VK API schema is **not included** in this repository to keep it lightweight. On the first run (server or tests), it is downloaded **automatically** from the official VK repository:
+
+```
+https://github.com/VKCOM/vk-api-schema
+```
+
+The schema is saved to `vk-api-schema/` in the project root and cached for subsequent runs.
+
+### Updating the Schema
+
+To get the latest VK API changes, delete the cached folder and restart:
+
+```bash
+rm -rf vk-api-schema/
+node src/index.js  # schema will be re-downloaded automatically
+```
+
+## Security
+
+- **Token storage:** Use `.env` or your MCP client's secure environment variables. Never commit tokens.
+- **Least privilege:** Use `VK_MCP_MODE=read` if the AI only needs to read data.
+- **Section filtering:** Exclude sensitive sections like `ads`, `secure` if not needed.
+- **Local execution:** The server uses stdio transport — it does not open any network ports.
+
+## Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| `VK_ACCESS_TOKEN is required` | Create `.env` file or set the environment variable |
+| `Unknown tool` | Check that the method name uses snake_case (`vk_wall_get` not `vk.wall.get`) |
+| `Access denied` | Your token lacks the required VK permission scope |
+| Too many tools | Use `VK_MCP_INCLUDE_SECTIONS` or `VK_MCP_MODE=read` to filter |
 
 ## License
 
@@ -109,4 +348,4 @@ Pull requests are welcome! Please open an issue first to discuss major changes.
 
 ---
 
-**Made for the Model Context Protocol ecosystem**
+**Made for the [Model Context Protocol](https://modelcontextprotocol.io/) ecosystem**

@@ -8,4 +8,8 @@ yarn-error.log*
 *.local
 coverage/
 .DS_Store
-vk-docs/
+.kilo/
+vk-api-schema/
+vk-api-schema-master.zip
+package-lock.json
+.gitignore
