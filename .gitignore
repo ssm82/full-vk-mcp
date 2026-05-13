@@ -11,5 +11,4 @@ coverage/
 .kilo/
 vk-api-schema/
 vk-api-schema-master.zip
-package-lock.json
 .gitignore
