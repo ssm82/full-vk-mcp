@@ -12,7 +12,7 @@ import { convertParam, buildInputSchema } from './src/param-converter.js';
 import { VKClient } from './src/vk-client.js';
 import { buildTools, buildHandler } from './src/tool-registry.js';
 
-global.fetch = jest.fn();
+
 
 describe('classifyMethod', () => {
   it('classifies get methods as read', () => {
@@ -340,12 +340,23 @@ describe('buildInputSchema', () => {
 });
 
 describe('VKClient', () => {
+  let fetchSpy;
+
   beforeEach(() => {
-    jest.clearAllMocks();
+    fetchSpy = jest.spyOn(global, 'fetch').mockImplementation(() =>
+      Promise.resolve({
+        ok: true,
+        text: () => Promise.resolve(JSON.stringify({ response: {} })),
+      })
+    );
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
   });
 
   it('normalizes boolean to 0/1', async () => {
-    global.fetch.mockResolvedValueOnce({
+    fetchSpy.mockResolvedValueOnce({
       ok: true,
       text: () => Promise.resolve(JSON.stringify({ response: {} })),
     });
@@ -353,13 +364,13 @@ describe('VKClient', () => {
     const client = new VKClient('test_token');
     await client.call('test.method', { flag: true, other: false });
 
-    const body = global.fetch.mock.calls[0][1].body;
+    const body = fetchSpy.mock.calls[0][1].body;
     expect(body).toContain('flag=1');
     expect(body).toContain('other=0');
   });
 
   it('normalizes array to comma-separated string', async () => {
-    global.fetch.mockResolvedValueOnce({
+    fetchSpy.mockResolvedValueOnce({
       ok: true,
       text: () => Promise.resolve(JSON.stringify({ response: {} })),
     });
@@ -367,12 +378,12 @@ describe('VKClient', () => {
     const client = new VKClient('test_token');
     await client.call('test.method', { ids: [1, 2, 3] });
 
-    const body = global.fetch.mock.calls[0][1].body;
+    const body = fetchSpy.mock.calls[0][1].body;
     expect(body).toContain('ids=1%2C2%2C3');
   });
 
   it('skips undefined and null values', async () => {
-    global.fetch.mockResolvedValueOnce({
+    fetchSpy.mockResolvedValueOnce({
       ok: true,
       text: () => Promise.resolve(JSON.stringify({ response: {} })),
     });
@@ -380,14 +391,14 @@ describe('VKClient', () => {
     const client = new VKClient('test_token');
     await client.call('test.method', { a: undefined, b: null, c: 'value' });
 
-    const body = global.fetch.mock.calls[0][1].body;
+    const body = fetchSpy.mock.calls[0][1].body;
     expect(body).not.toContain('a=');
     expect(body).not.toContain('b=');
     expect(body).toContain('c=value');
   });
 
   it('throws on VK API error', async () => {
-    global.fetch.mockResolvedValueOnce({
+    fetchSpy.mockResolvedValueOnce({
       ok: true,
       text: () => Promise.resolve(JSON.stringify({
         error: { error_code: 5, error_msg: 'Auth failed' },
@@ -399,7 +410,7 @@ describe('VKClient', () => {
   });
 
   it('uses correct API version and base URL', async () => {
-    global.fetch.mockResolvedValueOnce({
+    fetchSpy.mockResolvedValueOnce({
       ok: true,
       text: () => Promise.resolve(JSON.stringify({ response: {} })),
     });
@@ -407,7 +418,7 @@ describe('VKClient', () => {
     const client = new VKClient('test_token');
     await client.call('users.get', {});
 
-    expect(global.fetch).toHaveBeenCalledWith(
+    expect(fetchSpy).toHaveBeenCalledWith(
       'https://api.vk.com/method/users.get',
       expect.objectContaining({
         method: 'POST',
@@ -415,7 +426,7 @@ describe('VKClient', () => {
       })
     );
 
-    const body = global.fetch.mock.calls[0][1].body;
+    const body = fetchSpy.mock.calls[0][1].body;
     expect(body).toContain('access_token=test_token');
     expect(body).toContain('v=5.199');
   });
@@ -461,8 +472,19 @@ describe('buildTools', () => {
 });
 
 describe('buildHandler', () => {
+  let fetchSpy;
+
   beforeEach(() => {
-    jest.clearAllMocks();
+    fetchSpy = jest.spyOn(global, 'fetch').mockImplementation(() =>
+      Promise.resolve({
+        ok: true,
+        text: () => Promise.resolve(JSON.stringify({ response: {} })),
+      })
+    );
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
   });
 
   it('returns error for unknown tool', async () => {
@@ -473,7 +495,7 @@ describe('buildHandler', () => {
   });
 
   it('calls VK API for known tool', async () => {
-    global.fetch.mockResolvedValueOnce({
+    fetchSpy.mockResolvedValueOnce({
       ok: true,
       text: () => Promise.resolve(JSON.stringify({ response: { id: 1 } })),
     });
@@ -488,7 +510,7 @@ describe('buildHandler', () => {
   });
 
   it('returns error on VK API failure', async () => {
-    global.fetch.mockResolvedValueOnce({
+    fetchSpy.mockResolvedValueOnce({
       ok: true,
       text: () => Promise.resolve(JSON.stringify({
         error: { error_code: 5, error_msg: 'Auth failed' },

@@ -15,6 +15,7 @@
   ],
   "scripts": {
     "start": "node src/index.js",
+    "pretest": "node scripts/download-schema.js",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
   },
   "keywords": [
