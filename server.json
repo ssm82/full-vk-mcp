@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.ssm82/vk-mcp",
   "title": "VK MCP Server",
-  "description": "Model Context Protocol server for VKontakte (VK) API. Supports 180+ VK API tools including users, wall, groups, friends, photos, messages, and more. Auto-generated from the official VK API schema.",
+  "description": "MCP server for VK API with 180+ tools: users, wall, groups, friends, photos, messages.",
   "repository": {
     "url": "https://github.com/ssm82/full-vk-mcp",
     "source": "github"
