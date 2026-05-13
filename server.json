@@ -1,0 +1,59 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.ssm82/vk-mcp",
+  "title": "VK MCP Server",
+  "description": "Model Context Protocol server for VKontakte (VK) API. Supports 180+ VK API tools including users, wall, groups, friends, photos, messages, and more. Auto-generated from the official VK API schema.",
+  "repository": {
+    "url": "https://github.com/ssm82/full-vk-mcp",
+    "source": "github"
+  },
+  "version": "0.2.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "full-vk-mcp",
+      "version": "0.2.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://{host}/mcp",
+      "variables": {
+        "host": {
+          "description": "Your deployed VK MCP server hostname (e.g., vk-mcp.your-domain.com)",
+          "isRequired": true
+        }
+      },
+      "headers": [
+        {
+          "name": "Authorization",
+          "description": "Bearer token for authentication (required when VK_MCP_AUTH_TOKEN is set)",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    },
+    {
+      "type": "sse",
+      "url": "https://{host}/sse",
+      "variables": {
+        "host": {
+          "description": "Your deployed VK MCP server hostname (e.g., vk-mcp.your-domain.com)",
+          "isRequired": true
+        }
+      },
+      "headers": [
+        {
+          "name": "Authorization",
+          "description": "Bearer token for authentication (required when VK_MCP_AUTH_TOKEN is set)",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}
