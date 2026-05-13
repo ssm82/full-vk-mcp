@@ -24,15 +24,15 @@
       "url": "https://{host}/mcp",
       "variables": {
         "host": {
-          "description": "Your deployed VK MCP server hostname (e.g., vk-mcp.your-domain.com)",
+          "description": "Your deployed VK MCP server hostname, for example: vk-mcp.your-domain.com",
           "isRequired": true
         }
       },
       "headers": [
         {
           "name": "Authorization",
-          "description": "Bearer token for authentication (required when VK_MCP_AUTH_TOKEN is set)",
-          "isRequired": false,
+          "description": "Bearer authentication header. Use: Bearer <VK_MCP_AUTH_TOKEN>",
+          "isRequired": true,
           "isSecret": true
         }
       ]
@@ -42,15 +42,15 @@
       "url": "https://{host}/sse",
       "variables": {
         "host": {
-          "description": "Your deployed VK MCP server hostname (e.g., vk-mcp.your-domain.com)",
+          "description": "Your deployed VK MCP server hostname, for example: vk-mcp.your-domain.com",
           "isRequired": true
         }
       },
       "headers": [
         {
           "name": "Authorization",
-          "description": "Bearer token for authentication (required when VK_MCP_AUTH_TOKEN is set)",
-          "isRequired": false,
+          "description": "Bearer authentication header. Use: Bearer <VK_MCP_AUTH_TOKEN>",
+          "isRequired": true,
           "isSecret": true
         }
       ]

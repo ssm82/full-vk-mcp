@@ -2,20 +2,45 @@ name: Publish to MCP Registry
 
 on:
   push:
-    tags: ["v*"] # Triggers on version tags like v0.2.0
+    tags:
+      - "v*"
 
-  workflow_dispatch: # Allows manual trigger
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish, for example: 0.2.0"
+        required: true
+        type: string
 
 jobs:
   publish:
     runs-on: ubuntu-latest
+
     permissions:
-      id-token: write # Required for OIDC authentication
+      id-token: write
       contents: read
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Determine version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          else
+            VERSION="${{ github.event.inputs.version }}"
+          fi
+
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Invalid semver version: $VERSION"
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Publishing version: $VERSION"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -23,27 +48,71 @@ jobs:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
 
+      - name: Sync package.json and server.json versions
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+
+          jq --arg v "$VERSION" '
+            .version = $v |
+            .packages[0].version = $v
+          ' server.json > server.tmp
+
+          mv server.tmp server.json
+
+          echo "package.json version:"
+          node -p "require('./package.json').version"
+
+          echo "server.json version:"
+          jq -r '.version' server.json
+
+          echo "server.json package version:"
+          jq -r '.packages[0].version' server.json
+
       - name: Install dependencies
         run: npm ci
 
       - name: Run tests
         run: npm test --if-present
 
-      - name: Sync version from tag to server.json
+      - name: Validate npm package contents
+        run: npm pack --dry-run
+
+      - name: Check whether npm version already exists
+        id: npm_check
+        shell: bash
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
-          jq --arg v "$VERSION" '.version = $v | .packages[0].version = $v' server.json > server.tmp && mv server.tmp server.json
-          cat server.json | jq '.version'
+          VERSION="${{ steps.version.outputs.version }}"
+
+          if npm view full-vk-mcp@"$VERSION" version >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "npm package full-vk-mcp@$VERSION already exists"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "npm package full-vk-mcp@$VERSION does not exist yet"
+          fi
 
       - name: Publish package to npm
-        if: ${{ secrets.NPM_TOKEN != '' }}
-        run: npm publish --access public
+        if: steps.npm_check.outputs.exists == 'false'
+        shell: bash
+        run: |
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "::error::NPM_TOKEN secret is required to publish to npm"
+            exit 1
+          fi
+
+          npm publish --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Install mcp-publisher
+        shell: bash
         run: |
-          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+          chmod +x ./mcp-publisher
+          ./mcp-publisher --help
 
       - name: Authenticate to MCP Registry
         run: ./mcp-publisher login github-oidc

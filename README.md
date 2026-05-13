@@ -22,13 +22,26 @@ This server allows AI assistants (Claude, Cursor, Windsurf, VS Code, etc.) to in
 
 ## Installation
 
+### Option 1: Run with npx (no install)
+
 ```bash
-# Clone the repository
+npx full-vk-mcp
+```
+
+### Option 2: Install globally
+
+```bash
+npm install -g full-vk-mcp
+full-vk-mcp
+```
+
+### Option 3: Clone from GitHub
+
+```bash
 git clone https://github.com/ssm82/full-vk-mcp.git
 cd full-vk-mcp
-
-# Install dependencies
 npm install
+node src/index.js
 ```
 
 The VK API schema is downloaded **automatically** on the first run. No manual steps needed.
@@ -60,7 +73,7 @@ Or get a token from:
 Instead of manually configuring sections and methods, use a built-in profile via `VK_MCP_PROFILE`:
 
 ```bash
-VK_MCP_PROFILE=minimal node src/index.js
+VK_MCP_PROFILE=minimal npx full-vk-mcp
 ```
 
 | Profile | Mode | Description | Warning |
@@ -72,6 +85,7 @@ VK_MCP_PROFILE=minimal node src/index.js
 | `community_manager` | all | Wall, board, groups management | Can modify communities |
 | `messenger` | all | Messages + user info | Requires `messages` scope |
 | `analytics` | read | Stats, wall, groups insights | Safe |
+| `money` | money | All financially sensitive methods allowed by money-mode filtering | **Financially sensitive** |
 | `ads` | money | Ads API + helper methods | **Can spend money** |
 | `market` | money | VK Market + upload helpers | Can modify shop |
 | `commerce` | money | Market, orders, store, gifts, donut | Financially sensitive |
@@ -82,7 +96,7 @@ VK_MCP_PROFILE=minimal node src/index.js
 Profiles can be extended with environment variables:
 
 ```bash
-VK_MCP_PROFILE=social VK_MCP_INCLUDE_SECTIONS=wall node src/index.js
+VK_MCP_PROFILE=social VK_MCP_INCLUDE_SECTIONS=wall npx full-vk-mcp
 ```
 
 > **Env extends profile:** list variables (sections, methods, excludes) are merged with the profile; scalar `mode` is overridden by env.
@@ -98,8 +112,8 @@ Create `.vscode/mcp.json`:
   "servers": {
     "vk": {
       "type": "stdio",
-      "command": "node",
-      "args": ["src/index.js"],
+      "command": "npx",
+      "args": ["-y", "full-vk-mcp"],
       "env": {
         "VK_ACCESS_TOKEN": "${input:vk-token}",
         "VK_MCP_PROFILE": "minimal"
@@ -117,6 +131,15 @@ Create `.vscode/mcp.json`:
 }
 ```
 
+For local development from a cloned repository, use:
+
+```json
+{
+  "command": "node",
+  "args": ["/absolute/path/to/full-vk-mcp/src/index.js"]
+}
+```
+
 #### Cursor
 
 Create `.cursor/mcp.json`:
@@ -125,8 +148,8 @@ Create `.cursor/mcp.json`:
 {
   "mcpServers": {
     "vk": {
-      "command": "node",
-      "args": ["src/index.js"],
+      "command": "npx",
+      "args": ["-y", "full-vk-mcp"],
       "env": {
         "VK_ACCESS_TOKEN": "your_token",
         "VK_MCP_PROFILE": "social"
@@ -148,14 +171,23 @@ Edit `claude_desktop_config.json`:
 {
   "mcpServers": {
     "vk": {
-      "command": "node",
-      "args": ["/absolute/path/to/full-vk-mcp/src/index.js"],
+      "command": "npx",
+      "args": ["-y", "full-vk-mcp"],
       "env": {
         "VK_ACCESS_TOKEN": "your_token",
         "VK_MCP_PROFILE": "minimal"
       }
     }
   }
+}
+```
+
+For local development from a cloned repository, use:
+
+```json
+{
+  "command": "node",
+  "args": ["/absolute/path/to/full-vk-mcp/src/index.js"]
 }
 ```
 
@@ -175,7 +207,7 @@ By default, the server uses **stdio** transport for local MCP clients. To enable
 
 ```bash
 # HTTP mode for remote clients
-VK_ACCESS_TOKEN=your_token VK_MCP_TRANSPORT=http node src/index.js
+VK_ACCESS_TOKEN=your_token VK_MCP_TRANSPORT=http npx full-vk-mcp
 ```
 
 ## Environment Variables
@@ -215,6 +247,14 @@ Use `VK_MCP_MODE=money` when you need ads, market, or payment-related tools.
 
 ## Running Locally
 
+With npm/npx:
+
+```bash
+VK_ACCESS_TOKEN=your_token npx full-vk-mcp
+```
+
+With a cloned repository:
+
 ```bash
 # With .env file (recommended for development)
 node src/index.js
@@ -236,13 +276,13 @@ VK_ACCESS_TOKEN=your_token VK_MCP_INCLUDE_SECTIONS=users,wall node src/index.js
 
 ```bash
 # Start HTTP server (localhost only, no auth)
-VK_ACCESS_TOKEN=your_token VK_MCP_TRANSPORT=http node src/index.js
+VK_ACCESS_TOKEN=your_token VK_MCP_TRANSPORT=http npx full-vk-mcp
 
 # With custom port
-VK_MCP_TRANSPORT=http VK_MCP_PORT=8080 node src/index.js
+VK_MCP_TRANSPORT=http VK_MCP_PORT=8080 npx full-vk-mcp
 
 # Public deploy (auth required)
-VK_MCP_TRANSPORT=http VK_MCP_HOST=0.0.0.0 VK_MCP_AUTH_TOKEN=your_secret node src/index.js
+VK_MCP_TRANSPORT=http VK_MCP_HOST=0.0.0.0 VK_MCP_AUTH_TOKEN=your_secret npx full-vk-mcp
 ```
 
 ### Test HTTP endpoint
@@ -250,26 +290,22 @@ VK_MCP_TRANSPORT=http VK_MCP_HOST=0.0.0.0 VK_MCP_AUTH_TOKEN=your_secret node src
 ```bash
 # Health check
 curl http://127.0.0.1:3000/health
-
-# Initialize MCP session (returns Mcp-Session-Id header)
-curl -X POST http://127.0.0.1:3000/mcp \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json, text/event-stream" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}'
-
-# List tools (use Mcp-Session-Id from the previous response)
-curl -X POST http://127.0.0.1:3000/mcp \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json, text/event-stream" \
-  -H "Mcp-Session-Id: <session_id_from_above>" \
-  -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
 ```
 
-For full protocol testing use the MCP Inspector:
+For full MCP protocol testing, use the MCP Inspector:
 
 ```bash
 npx @modelcontextprotocol/inspector
 ```
+
+Then select:
+
+```text
+Transport: Streamable HTTP
+URL: http://127.0.0.1:3000/mcp
+```
+
+Streamable HTTP is session-based. A raw `tools/list` request must be sent only after an `initialize` request and with the returned `Mcp-Session-Id` header.
 
 In the Inspector UI select **Streamable HTTP** and enter `http://127.0.0.1:3000/mcp`.
 
@@ -334,8 +370,11 @@ For Render, Railway, Fly.io, or similar PaaS:
 # build command
 npm install
 
-# start command
+# start command (when deploying from repository)
 node src/index.js
+
+# or when deploying from npm package
+npx full-vk-mcp
 
 # environment variables
 VK_ACCESS_TOKEN=...
@@ -377,6 +416,8 @@ full-vk-mcp/
 ├── package.json
 └── README.md
 ```
+
+> **Note:** The published npm package includes runtime files only (`src/`, `README.md`, `LICENSE`, `server.json`). Tests and development files are kept in the GitHub repository.
 
 ## VK API Schema
 

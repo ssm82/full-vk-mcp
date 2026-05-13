@@ -26,7 +26,7 @@ function buildDescription(method) {
   ].join(' ');
 
   if (!originalDescription) {
-    return metadata.slice(0, 1000);
+    return method.name.slice(0, 1000);
   }
 
   return `${originalDescription} ${metadata}`.slice(0, 1000);

@@ -1,12 +1,18 @@
 {
   "name": "full-vk-mcp",
   "version": "0.2.0",
-  "description": "Model Context Protocol (MCP) server for VKontakte (VK) API. Allows AI assistants to interact with VK through a standardized interface.",
+  "description": "Model Context Protocol server for VKontakte VK API",
   "type": "module",
   "main": "src/index.js",
   "bin": {
     "full-vk-mcp": "./src/index.js"
   },
+  "files": [
+    "src/",
+    "README.md",
+    "LICENSE",
+    "server.json"
+  ],
   "scripts": {
     "start": "node src/index.js",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
@@ -17,9 +23,7 @@
     "vk",
     "vkontakte",
     "vk-api",
-    "claude",
-    "ai",
-    "assistant"
+    "ai-tools"
   ],
   "author": "VK MCP Contributors",
   "license": "MIT",
@@ -30,11 +34,11 @@
     "express": "^4.22.2"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=18"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/ssm82/full-vk-mcp"
+    "url": "git+https://github.com/ssm82/full-vk-mcp.git"
   },
   "bugs": {
     "url": "https://github.com/ssm82/full-vk-mcp/issues"
