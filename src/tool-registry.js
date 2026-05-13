@@ -1,25 +1,41 @@
 import { buildInputSchema } from './param-converter.js';
 
-function getToolName(methodName) {
+export function getToolName(methodName) {
   return `vk_${methodName
     .replace(/\./g, '_')
     .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
     .toLowerCase()}`;
 }
 
-function cleanDescription(desc, methodName) {
-  if (!desc) return methodName;
-  return desc
+function cleanText(text) {
+  return String(text || '')
     .replace(/<[^>]+>/g, '')
     .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 1000);
+    .trim();
+}
+
+function buildDescription(method) {
+  const toolName = getToolName(method.name);
+  const originalDescription = cleanText(method.description);
+
+  const metadata = [
+    `VK API method: ${method.name}.`,
+    `Tool name: ${toolName}.`,
+    `Section: ${method.section}.`,
+    `Access level: ${method.access}.`,
+  ].join(' ');
+
+  if (!originalDescription) {
+    return metadata.slice(0, 1000);
+  }
+
+  return `${originalDescription} ${metadata}`.slice(0, 1000);
 }
 
 export function buildTools(methods) {
   return methods.map(method => ({
     name: getToolName(method.name),
-    description: cleanDescription(method.description, method.name),
+    description: buildDescription(method),
     inputSchema: buildInputSchema(method.parameters),
   }));
 }

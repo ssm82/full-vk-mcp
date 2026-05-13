@@ -13,7 +13,7 @@ This server allows AI assistants (Claude, Cursor, Windsurf, VS Code, etc.) to in
 - **`.env` support** — load token from environment file for local development
 - **VK upload API helpers** — exposes upload-server and save methods for media workflows
 - **ESM-based** — modern Node.js module system
-- **Stdio transport** — standard MCP transport, no network exposure
+- **Multiple transports** — stdio (for Claude Desktop / Cursor), Streamable HTTP and SSE (for remote MCP clients like Grok)
 
 ## Prerequisites
 
@@ -163,6 +163,21 @@ Edit `claude_desktop_config.json`:
 
 Use the stdio transport and provide `VK_ACCESS_TOKEN` via environment variables.
 
+### 4. Transport Mode
+
+By default, the server uses **stdio** transport for local MCP clients. To enable remote connections, switch to HTTP:
+
+| `VK_MCP_TRANSPORT` | Use case |
+|--------------------|----------|
+| `stdio` (default)  | Claude Desktop, Cursor, VS Code, Windsurf |
+| `http`             | Grok, ChatGPT, remote MCP clients |
+| `sse`              | Same as `http` (both endpoints enabled) |
+
+```bash
+# HTTP mode for remote clients
+VK_ACCESS_TOKEN=your_token VK_MCP_TRANSPORT=http node src/index.js
+```
+
 ## Environment Variables
 
 | Variable | Default | Description |
@@ -171,10 +186,14 @@ Use the stdio transport and provide `VK_ACCESS_TOKEN` via environment variables.
 | `VK_MCP_PROFILE` | — | Built-in profile name (`minimal`, `social`, `full`, etc.) |
 | `VK_MCP_MODE` | `read` | `read` — read-only, `write` — non-financial writes, `money` — financially sensitive, `all` — everything |
 | `VK_MCP_INCLUDE_SECTIONS` | — | Comma-separated whitelist of API sections. Without a profile, safe subset (`users`, `groups`, `wall`, `friends`, `photos`) is used |
-| `VK_MCP_EXCLUDE_SECTIONS` | `ads,secure` *(without profile / without explicit includes)* | Comma-separated blacklist of API sections (e.g., `ads,secure`). Skipped when `VK_MCP_INCLUDE_SECTIONS` or `VK_MCP_INCLUDE_METHODS` is set |
+| `VK_MCP_EXCLUDE_SECTIONS` | `ads,secure,market,orders,store,gifts,donut,votes` *(without profile / without explicit includes)* | Comma-separated blacklist of API sections. Skipped when `VK_MCP_INCLUDE_SECTIONS` or `VK_MCP_INCLUDE_METHODS` is set |
 | `VK_MCP_INCLUDE_METHODS` | — | Comma-separated whitelist of methods (e.g., `users.get,wall.get`) |
 | `VK_MCP_EXCLUDE_METHODS` | — | Comma-separated blacklist of methods |
 | `VK_MCP_MAX_TOOLS` | — | Limit the number of exposed tools |
+| `VK_MCP_TRANSPORT` | `stdio` | Transport type: `stdio`, `http`, or `sse` |
+| `VK_MCP_PORT` | `3000` | HTTP port (falls back to `$PORT` for PaaS like Render) |
+| `VK_MCP_HOST` | `127.0.0.1` | Bind address. Use `0.0.0.0` for public hosts |
+| `VK_MCP_AUTH_TOKEN` | — | Bearer token for HTTP transport auth (required when binding to non-loopback) |
 
 ### Mode Filtering
 
@@ -213,15 +232,46 @@ VK_ACCESS_TOKEN=your_token VK_MCP_MODE=read node src/index.js
 VK_ACCESS_TOKEN=your_token VK_MCP_INCLUDE_SECTIONS=users,wall node src/index.js
 ```
 
-### CLI Commands
+### HTTP Mode
 
 ```bash
-# List all available profiles
-node src/index.js --list-profiles
+# Start HTTP server (localhost only, no auth)
+VK_ACCESS_TOKEN=your_token VK_MCP_TRANSPORT=http node src/index.js
 
-# List tools for a specific profile (no token required)
-VK_MCP_PROFILE=minimal node src/index.js --list-tools
+# With custom port
+VK_MCP_TRANSPORT=http VK_MCP_PORT=8080 node src/index.js
+
+# Public deploy (auth required)
+VK_MCP_TRANSPORT=http VK_MCP_HOST=0.0.0.0 VK_MCP_AUTH_TOKEN=your_secret node src/index.js
 ```
+
+### Test HTTP endpoint
+
+```bash
+# Health check
+curl http://127.0.0.1:3000/health
+
+# Initialize MCP session (returns Mcp-Session-Id header)
+curl -X POST http://127.0.0.1:3000/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}'
+
+# List tools (use Mcp-Session-Id from the previous response)
+curl -X POST http://127.0.0.1:3000/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -H "Mcp-Session-Id: <session_id_from_above>" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
+```
+
+For full protocol testing use the MCP Inspector:
+
+```bash
+npx @modelcontextprotocol/inspector
+```
+
+In the Inspector UI select **Streamable HTTP** and enter `http://127.0.0.1:3000/mcp`.
 
 ## Available Tools (by Category)
 
@@ -276,6 +326,28 @@ Arguments: {
 }
 ```
 
+## Deployment
+
+For Render, Railway, Fly.io, or similar PaaS:
+
+```bash
+# build command
+npm install
+
+# start command
+node src/index.js
+
+# environment variables
+VK_ACCESS_TOKEN=...
+VK_MCP_TRANSPORT=http
+VK_MCP_HOST=0.0.0.0
+VK_MCP_PORT=3000        # or omit to use $PORT (Render auto-sets it)
+VK_MCP_AUTH_TOKEN=...   # required for public access
+VK_MCP_MODE=read        # or your chosen profile/mode
+```
+
+> **Render note:** Render provides the port via the `$PORT` environment variable. The server automatically falls back to it when `VK_MCP_PORT` is not set.
+
 ## Development
 
 ```bash
@@ -291,10 +363,13 @@ node src/index.js
 ```
 full-vk-mcp/
 ├── src/
-│   ├── index.js           # MCP server entry point
+│   ├── index.js           # Entry point (transport switching)
+│   ├── server-factory.js  # MCP server factory
+│   ├── http-transport.js  # HTTP/SSE transport
 │   ├── schema-loader.js   # Loads and filters VK API schema
 │   ├── tool-registry.js   # Builds MCP tools from schema
 │   ├── param-converter.js # Converts VK params to JSON Schema
+│   ├── profiles.js        # Built-in profiles
 │   └── vk-client.js       # VK API HTTP client
 ├── vk-api-schema/         # Official VK API schema (JSON) — see note below
 ├── tests.test.js          # Test suite
@@ -327,7 +402,7 @@ node src/index.js  # schema will be re-downloaded automatically
 - **Token storage:** Use `.env` or your MCP client's secure environment variables. Never commit tokens.
 - **Least privilege:** Use `VK_MCP_MODE=read` if the AI only needs to read data.
 - **Section filtering:** Exclude sensitive sections like `ads`, `secure` if not needed.
-- **Local execution:** The server uses stdio transport — it does not open any network ports.
+- **HTTP mode security:** By default, HTTP binds to `127.0.0.1` only. If you bind to `0.0.0.0` (public), `VK_MCP_AUTH_TOKEN` is **required** — the server will refuse to start without it. Always use HTTPS in production.
 
 ## Troubleshooting
 
@@ -337,6 +412,8 @@ node src/index.js  # schema will be re-downloaded automatically
 | `Unknown tool` | Check that the method name uses snake_case (`vk_wall_get` not `vk.wall.get`) |
 | `Access denied` | Your token lacks the required VK permission scope |
 | Too many tools | Use `VK_MCP_INCLUDE_SECTIONS` or `VK_MCP_MODE=read` to filter |
+| HTTP `Not Acceptable` | Add header `Accept: application/json, text/event-stream` |
+| HTTP `VK_MCP_AUTH_TOKEN is required` | Set auth token when binding to `0.0.0.0` |
 
 ## License
 
