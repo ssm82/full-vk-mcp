@@ -128,6 +128,7 @@ function isMethodAllowedByMode(config, methodAccess, methodName) {
   if (config.mode === 'all') return true;
   if (methodAccess === config.mode) return true;
   if (config.mode === 'write' && methodAccess === 'read') return true;
+  if (config.mode === 'money' && methodAccess === 'read' && isMoneyMethod(methodName)) return true;
   if (config.methods?.includes(methodName)) {
     if (methodAccess === 'money') return config.mode === 'money';
     return true;

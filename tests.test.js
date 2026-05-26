@@ -732,7 +732,7 @@ describe('Profiles', () => {
   });
 
   it('each profile returns non-zero methods', async () => {
-    const profiles = ['minimal', 'social', 'content_read', 'content_publish', 'community_manager', 'messenger', 'analytics', 'ads', 'market', 'commerce', 'money', 'search', 'full_read', 'full'];
+    const profiles = ['minimal', 'social', 'content_read', 'content_publish', 'community_manager', 'messenger', 'analytics', 'ads', 'market', 'commerce', 'money', 'search', 'community_read', 'full_read', 'full'];
     for (const name of profiles) {
       process.env.VK_MCP_PROFILE = name;
       delete process.env.VK_MCP_MODE;
