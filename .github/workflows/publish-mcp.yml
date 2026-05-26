@@ -22,7 +22,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Determine version
         id: version
@@ -43,7 +43,7 @@ jobs:
           echo "Publishing version: $VERSION"
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v4
         with:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
@@ -121,7 +121,7 @@ jobs:
         run: ./mcp-publisher publish
 
       - name: Upload server.json as artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: server-json
           path: server.json
